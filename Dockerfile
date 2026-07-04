@@ -1,4 +1,4 @@
-FROM lmsysorg/sglang:v0.6.0-cu126
+FROM lmsysorg/sglang:v0.5.14-runtime
 
 # Install uv package manager
 RUN curl -Ls https://astral.sh/uv/install.sh | sh \
@@ -8,9 +8,10 @@ ENV PATH="/root/.local/bin:${PATH}"
 # Set working directory to the one already used by the base image
 WORKDIR /sgl-workspace
 
-# Upgrade transformers to support Qwen3-VL
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system --upgrade transformers tokenizers
+    uv pip install --system --upgrade \
+    "transformers>=5.13.0" \
+    "tokenizers>=0.15.0"
 
 # install dependencies
 COPY requirements.txt ./
