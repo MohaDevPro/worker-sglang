@@ -1,17 +1,11 @@
 FROM lmsysorg/sglang:v0.5.14-cu129
 
-# Install uv package manager
-RUN curl -Ls https://astral.sh/uv/install.sh | sh \
-    && ln -sf /root/.local/bin/uv /usr/local/bin/uv
-ENV PATH="/root/.local/bin:${PATH}"
-
 # Set working directory to the one already used by the base image
 WORKDIR /sgl-workspace
 
-# install dependencies
+# install dependencies (pip is already available in the base image)
 COPY requirements.txt ./
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # copy source files
 COPY handler.py engine.py utils.py download_model.py test_input.json ./
