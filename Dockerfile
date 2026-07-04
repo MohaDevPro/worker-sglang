@@ -8,11 +8,6 @@ ENV PATH="/root/.local/bin:${PATH}"
 # Set working directory to the one already used by the base image
 WORKDIR /sgl-workspace
 
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system --break-system-packages --upgrade \
-    "transformers>=5.13.0" \
-    "tokenizers>=0.15.0"
-
 # install dependencies
 COPY requirements.txt ./
 RUN --mount=type=cache,target=/root/.cache/uv \
