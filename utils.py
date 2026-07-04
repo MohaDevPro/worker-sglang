@@ -20,6 +20,9 @@ def format_chunk(chunk):
         return f"data: {chunk}\n\n"
     
 def process_response(response):
+    """Process a streaming response from requests (sync).
+    NOTE: This is kept for backward compatibility. The async handler
+    now reads streaming responses directly via aiohttp."""
     for line in response.iter_lines():
         if line:
             decoded_line = line.decode('utf-8')

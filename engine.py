@@ -1,10 +1,7 @@
 import subprocess
 import time
-import requests
-import openai
-import asyncio
-import aiohttp
 import os
+import sys
 
 
 class SGlangEngine:
@@ -12,7 +9,7 @@ class SGlangEngine:
         self,
         model=os.getenv("MODEL_NAME"),
         host=os.getenv("HOST", "0.0.0.0"),
-        port=int(os.getenv("PORT", 30000)),
+        port=int(os.getenv("PORT", "30000")),
     ):
         self.model = model
         self.host = host
@@ -62,6 +59,8 @@ class SGlangEngine:
             "SAMPLING_BACKEND": "--sampling-backend",
             "TOOL_CALL_PARSER": "--tool-call-parser",
             "REASONING_PARSER": "--reasoning-parser",
+            # VLM-specific options (added for Qwen3-VL support)
+            "MM_ATTENTION_BACKEND": "--mm-attention-backend",
         }
 
         # Boolean flags
@@ -77,6 +76,10 @@ class SGlangEngine:
             "ENABLE_P2P_CHECK",
             "ENABLE_FLASHINFER_MLA",
             "TRITON_ATTENTION_REDUCE_IN_FP32",
+            # VLM-specific boolean flags (added for Qwen3-VL support)
+            "ENABLE_MULTIMODAL",
+            "KEEP_MM_FEATURE_ON_DEVICE",
+            "DISABLE_FAST_IMAGE_PROCESSOR",
         ]
 
         # Add options from environment variables only if they are set
@@ -90,99 +93,129 @@ class SGlangEngine:
             if os.getenv(flag, "").lower() in ("true", "1", "yes"):
                 command.append(f"--{flag.lower().replace('_', '-')}")
 
-        self.process = subprocess.Popen(command, stdout=None, stderr=None)
-        print(f"Server started with PID: {self.process.pid}")
+        # Log the full command for debugging
+        print(f"Starting sglang server with command: {' '.join(command)}", flush=True)
+
+        # Capture stdout/stderr so we can see server logs and detect crashes
+        self.process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        print(f"Server started with PID: {self.process.pid}", flush=True)
 
     def wait_for_server(self, timeout=900, interval=5):
+        """
+        Wait for the sglang server to be ready.
+        Monitors the subprocess for crashes while waiting,
+        and logs server output for debugging.
+        """
+        import urllib.request
+        import urllib.error
+
         start_time = time.time()
+        last_output_time = start_time
+
         while time.time() - start_time < timeout:
+            # Check if the server process has crashed
+            poll = self.process.poll()
+            if poll is not None:
+                # Process has exited - read any remaining output
+                remaining = self.process.stdout.read().decode("utf-8", errors="replace")
+                print(f"Server process exited with code {poll}", flush=True)
+                if remaining:
+                    print(f"Server output:\n{remaining}", flush=True)
+                raise RuntimeError(
+                    f"Server process crashed with exit code {poll}. "
+                    f"Check the logs above for details."
+                )
+
+            # Read and print server output for debugging (non-blocking)
             try:
-                response = requests.get(f"{self.base_url}/v1/models")
-                if response.status_code == 200:
-                    print("Server is ready!")
-                    return True
-            except requests.RequestException:
+                import selectors
+                sel = selectors.DefaultSelector()
+                sel.register(self.process.stdout, selectors.EVENT_READ)
+                ready = sel.select(timeout=0.1)
+                for key, _ in ready:
+                    line = key.fileobj.readline()
+                    if line:
+                        decoded = line.decode("utf-8", errors="replace").rstrip()
+                        print(f"[sglang] {decoded}", flush=True)
+                        last_output_time = time.time()
+                sel.close()
+            except Exception:
                 pass
+
+            # Check if server is ready
+            try:
+                req = urllib.request.Request(
+                    f"{self.base_url}/v1/models",
+                    method="GET",
+                )
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    if resp.status == 200:
+                        print("Server is ready!", flush=True)
+                        return True
+            except (urllib.error.URLError, Exception):
+                pass
+
             time.sleep(interval)
-        raise TimeoutError("Server failed to start within the timeout period.")
+
+        raise TimeoutError(
+            f"Server failed to start within {timeout} seconds. "
+            f"Last server output was {time.time() - last_output_time:.0f}s ago."
+        )
+
+    def warmup(self):
+        """
+        Send a lightweight warmup request to prime CUDA graphs and KV cache.
+        This avoids the first real user request being significantly slower.
+        Uses urllib to avoid pulling in requests/aiohttp at module level.
+        """
+        import urllib.request
+        import urllib.error
+        import json
+
+        print("[engine] Sending warmup request...", flush=True)
+        warmup_payload = json.dumps({
+            "model": self.model or "default",
+            "messages": [{"role": "user", "content": "Hi"}],
+            "max_tokens": 5,
+            "stream": False,
+        }).encode("utf-8")
+
+        try:
+            req = urllib.request.Request(
+                f"{self.base_url}/v1/chat/completions",
+                data=warmup_payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                if resp.status == 200:
+                    print("[engine] Warmup successful!", flush=True)
+                else:
+                    print(
+                        f"[engine] Warmup returned status {resp.status}, "
+                        "continuing anyway.",
+                        flush=True,
+                    )
+        except Exception as e:
+            # Warmup failure is non-fatal; the server is still running.
+            print(f"[engine] Warmup failed (non-fatal): {e}", flush=True)
 
     def shutdown(self):
-        if self.process:
+        """Gracefully terminate the sglang server process."""
+        if self.process and self.process.poll() is None:
+            print("[engine] Sending SIGTERM to sglang server...", flush=True)
             self.process.terminate()
-            self.process.wait()
-            print("Server shut down.")
-
-
-class OpenAIRequest:
-    def __init__(self, base_url="http://0.0.0.0:30000/v1", api_key="EMPTY"):
-        self.client = openai.Client(base_url=base_url, api_key=api_key)
-
-    async def request_chat_completions(
-        self,
-        model="default",
-        messages=None,
-        max_tokens=100,
-        stream=False,
-        frequency_penalty=0.0,
-        n=1,
-        stop=None,
-        temperature=1.0,
-        top_p=1.0,
-    ):
-        if messages is None:
-            messages = [
-                {"role": "system", "content": "You are a helpful AI assistant"},
-                {"role": "user", "content": "List 3 countries and their capitals."},
-            ]
-
-        response = self.client.chat.completions.create(
-            model=model,
-            messages=messages,
-            max_tokens=max_tokens,
-            stream=stream,
-            frequency_penalty=frequency_penalty,
-            n=n,
-            stop=stop,
-            temperature=temperature,
-            top_p=top_p,
-        )
-
-        if stream:
-            async for chunk in response:
-                yield chunk.to_dict()
+            try:
+                self.process.wait(timeout=30)
+                print("[engine] Server exited gracefully.", flush=True)
+            except subprocess.TimeoutExpired:
+                print("[engine] Server did not exit in 30s, sending SIGKILL...", flush=True)
+                self.process.kill()
+                self.process.wait()
+                print("[engine] Server killed.", flush=True)
         else:
-            yield response.to_dict()
-
-    async def request_completions(
-        self,
-        model="default",
-        prompt="The capital of France is",
-        max_tokens=100,
-        stream=False,
-        frequency_penalty=0.0,
-        n=1,
-        stop=None,
-        temperature=1.0,
-        top_p=1.0,
-    ):
-        response = self.client.completions.create(
-            model=model,
-            prompt=prompt,
-            max_tokens=max_tokens,
-            stream=stream,
-            frequency_penalty=frequency_penalty,
-            n=n,
-            stop=stop,
-            temperature=temperature,
-            top_p=top_p,
-        )
-
-        if stream:
-            async for chunk in response:
-                yield chunk.to_dict()
-        else:
-            yield response.to_dict()
-
-    async def get_models(self):
-        response = await self.client.models.list()
-        return response
+            print("[engine] Server process already stopped.", flush=True)

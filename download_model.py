@@ -77,5 +77,15 @@ if __name__ == "__main__":
         }
     )
 
-    with open(f"{BASE_DIR}/local_model_args.json", "w") as f:
+    # FIX: Write to a writable location and also to the base path
+    output_path = os.path.join(os.getenv("BASE_PATH", "/runpod-volume"), "local_model_args.json")
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "w") as f:
         json.dump({k: v for k, v in metadata.items() if v not in (None, "")}, f)
+
+    # Also write to / for backward compatibility
+    try:
+        with open(f"{BASE_DIR}/local_model_args.json", "w") as f:
+            json.dump({k: v for k, v in metadata.items() if v not in (None, "")}, f)
+    except OSError:
+        pass

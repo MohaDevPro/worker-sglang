@@ -21,21 +21,95 @@
         }
       },
       {
-        "key": "TOOL_CALL_PARSER",
+        "key": "QUANTIZATION",
         "input": {
-          "name": "Tool Call Parser",
+          "name": "Quantization",
           "type": "string",
-          "description": "Defines the parser used to interpret tool call responses",
+          "description": "Quantization method. Leave EMPTY for pre-quantized FP8 models (e.g. Qwen3-VL-8B-Instruct-FP8). Only set for models that need runtime quantization.",
           "default": "",
           "required": false,
-          "advanced": true,
           "options": [
-            { "value": "llama3", "label": "llama3" },
-            { "value": "llama4", "label": "llama4" },
-            { "value": "mistral", "label": "mistral" },
-            { "value": "qwen25", "label": "qwen25" },
-            { "value": "deepseekv3", "label": "deepseekv3" }
-          ]
+            { "value": "awq", "label": "AWQ" },
+            { "value": "fp8", "label": "FP8" },
+            { "value": "gptq", "label": "GPTQ" },
+            { "value": "marlin", "label": "Marlin" },
+            { "value": "gptq_marlin", "label": "GPTQ Marlin" },
+            { "value": "awq_marlin", "label": "AWQ Marlin" },
+            { "value": "squeezellm", "label": "SqueezeLLM" },
+            { "value": "bitsandbytes", "label": "BitsAndBytes" }
+          ],
+          "advanced": true
+        }
+      },
+      {
+        "key": "TRUST_REMOTE_CODE",
+        "input": {
+          "name": "Trust Remote Code",
+          "type": "boolean",
+          "description": "Allow custom models from Hub. REQUIRED for Qwen3-VL models.",
+          "default": true,
+          "required": false
+        }
+      },
+      {
+        "key": "ATTENTION_BACKEND",
+        "input": {
+          "name": "Attention Backend",
+          "type": "string",
+          "description": "Attention computation backend for text tokens. 'flashinfer' recommended for RTX 4090.",
+          "default": "flashinfer",
+          "required": false,
+          "options": [
+            { "value": "flashinfer", "label": "FlashInfer" },
+            { "value": "triton", "label": "Triton" },
+            { "value": "torch_native", "label": "Torch Native" },
+            { "value": "fa3", "label": "FA3" },
+            { "value": "fa4", "label": "FA4" }
+          ],
+          "advanced": true
+        }
+      },
+      {
+        "key": "MM_ATTENTION_BACKEND",
+        "input": {
+          "name": "Multimodal Attention Backend",
+          "type": "string",
+          "description": "Attention backend for multimodal (image/video) tokens. Leave empty for auto-detect. Use 'triton_attn' for RTX 4090 if default fails.",
+          "default": "",
+          "required": false,
+          "options": [
+            { "value": "", "label": "Auto-detect" },
+            { "value": "triton_attn", "label": "Triton" },
+            { "value": "fa3", "label": "FA3" },
+            { "value": "fa4", "label": "FA4" },
+            { "value": "sdpa", "label": "SDPA" }
+          ],
+          "advanced": true
+        }
+      },
+      {
+        "key": "SAMPLING_BACKEND",
+        "input": {
+          "name": "Sampling Backend",
+          "type": "string",
+          "description": "Sampling computation backend",
+          "default": "flashinfer",
+          "required": false,
+          "options": [
+            { "value": "flashinfer", "label": "FlashInfer" },
+            { "value": "torch", "label": "Torch" }
+          ],
+          "advanced": true
+        }
+      },
+      {
+        "key": "FILE_STORAGE_PATH",
+        "input": {
+          "name": "File Storage Path",
+          "type": "string",
+          "description": "Path for storing uploaded files (images/videos for VLM). REQUIRED for vision models like Qwen3-VL.",
+          "default": "/runpod-volume/file-storage",
+          "required": false
         }
       },
       {
@@ -43,7 +117,26 @@
         "input": {
           "name": "Reasoning Parser",
           "type": "string",
-          "description": "Defines the parser used to interpret reasoning traces",
+          "description": "Parser for reasoning/thinking content. Use 'qwen3' for Qwen3 models, 'qwen3-thinking' for Qwen3-Thinking models.",
+          "default": "",
+          "required": false,
+          "advanced": true,
+          "options": [
+            { "value": "", "label": "None" },
+            { "value": "qwen3", "label": "qwen3 (Qwen3 standard)" },
+            { "value": "qwen3-thinking", "label": "qwen3-thinking (Qwen3 Thinking)" },
+            { "value": "deepseek-r1", "label": "deepseek-r1" },
+            { "value": "deepseek-v3", "label": "deepseek-v3" },
+            { "value": "qwen25", "label": "qwen25 (Qwen2.5 only)" }
+          ]
+        }
+      },
+      {
+        "key": "TOOL_CALL_PARSER",
+        "input": {
+          "name": "Tool Call Parser",
+          "type": "string",
+          "description": "Defines the parser used to interpret tool call responses",
           "default": "",
           "required": false,
           "advanced": true,
@@ -105,7 +198,7 @@
         "input": {
           "name": "Data Type",
           "type": "string",
-          "description": "Data type for weights and activations",
+          "description": "Data type for weights and activations. Use 'auto' for FP8 pre-quantized models.",
           "default": "auto",
           "required": false,
           "options": [
@@ -124,30 +217,9 @@
         "input": {
           "name": "Context Length",
           "type": "number",
-          "description": "Model's maximum context length",
-          "default": "",
+          "description": "Model's maximum context length. 8192 is a good balance for RTX 4090 (24GB) with VLM.",
+          "default": 8192,
           "required": false,
-          "advanced": true
-        }
-      },
-      {
-        "key": "QUANTIZATION",
-        "input": {
-          "name": "Quantization",
-          "type": "string",
-          "description": "Quantization method",
-          "default": "",
-          "required": false,
-          "options": [
-            { "value": "awq", "label": "AWQ" },
-            { "value": "fp8", "label": "FP8" },
-            { "value": "gptq", "label": "GPTQ" },
-            { "value": "marlin", "label": "Marlin" },
-            { "value": "gptq_marlin", "label": "GPTQ Marlin" },
-            { "value": "awq_marlin", "label": "AWQ Marlin" },
-            { "value": "squeezellm", "label": "SqueezeLLM" },
-            { "value": "bitsandbytes", "label": "BitsAndBytes" }
-          ],
           "advanced": true
         }
       },
@@ -178,8 +250,8 @@
         "input": {
           "name": "Memory Fraction Static",
           "type": "number",
-          "description": "Fraction of memory for static allocation",
-          "default": "",
+          "description": "Fraction of GPU memory for model weights. 0.85 for RTX 4090 with FP8 VLM + 10 concurrent users.",
+          "default": 0.85,
           "required": false,
           "advanced": true
         }
@@ -189,10 +261,9 @@
         "input": {
           "name": "Max Running Requests",
           "type": "number",
-          "description": "Maximum number of running requests",
-          "default": "",
-          "required": false,
-          "advanced": true
+          "description": "Maximum concurrent requests processed by sglang. Set to 10 for 10 concurrent users.",
+          "default": 10,
+          "required": false
         }
       },
       {
@@ -200,8 +271,8 @@
         "input": {
           "name": "Max Total Tokens",
           "type": "number",
-          "description": "Maximum tokens in memory pool",
-          "default": "",
+          "description": "Maximum tokens in memory pool. Balances concurrency vs. per-request capacity.",
+          "default": 8192,
           "required": false,
           "advanced": true
         }
@@ -211,8 +282,8 @@
         "input": {
           "name": "Chunked Prefill Size",
           "type": "number",
-          "description": "Max tokens in chunk for chunked prefill",
-          "default": "",
+          "description": "Max tokens per chunk in chunked prefill. Lower = less VRAM spike per request.",
+          "default": 512,
           "required": false,
           "advanced": true
         }
@@ -222,8 +293,8 @@
         "input": {
           "name": "Max Prefill Tokens",
           "type": "number",
-          "description": "Max tokens in prefill batch",
-          "default": "",
+          "description": "Max tokens in prefill batch across all requests.",
+          "default": 4096,
           "required": false,
           "advanced": true
         }
@@ -233,8 +304,8 @@
         "input": {
           "name": "Schedule Policy",
           "type": "string",
-          "description": "Request scheduling policy",
-          "default": "",
+          "description": "Request scheduling policy. 'lpm' (longest-prefix-match) is best for VLMs with image prefix reuse.",
+          "default": "lpm",
           "required": false,
           "options": [
             { "value": "lpm", "label": "LPM" },
@@ -250,7 +321,7 @@
         "input": {
           "name": "Schedule Conservativeness",
           "type": "number",
-          "description": "Conservativeness of schedule policy",
+          "description": "Conservativeness of schedule policy (0.0 to 1.0). Higher = more conservative memory use.",
           "default": "",
           "required": false,
           "advanced": true
@@ -261,8 +332,8 @@
         "input": {
           "name": "Tensor Parallel Size",
           "type": "number",
-          "description": "Tensor parallelism size",
-          "default": "",
+          "description": "Tensor parallelism size. Use 1 for single GPU (RTX 4090).",
+          "default": 1,
           "required": false,
           "advanced": true
         }
@@ -295,9 +366,14 @@
           "name": "Log Level",
           "type": "string",
           "description": "Logging level for all loggers",
-          "default": "",
+          "default": "info",
           "required": false,
-          "advanced": true
+          "options": [
+            { "value": "debug", "label": "Debug" },
+            { "value": "info", "label": "Info" },
+            { "value": "warning", "label": "Warning" },
+            { "value": "error", "label": "Error" }
+          ]
         }
       },
       {
@@ -317,17 +393,6 @@
           "name": "API Key",
           "type": "string",
           "description": "API key for the server",
-          "default": "",
-          "required": false,
-          "advanced": true
-        }
-      },
-      {
-        "key": "FILE_STORAGE_PATH",
-        "input": {
-          "name": "File Storage Path",
-          "type": "string",
-          "description": "Path of file storage in backend",
           "default": "",
           "required": false,
           "advanced": true
@@ -371,17 +436,6 @@
         }
       },
       {
-        "key": "TRUST_REMOTE_CODE",
-        "input": {
-          "name": "Trust Remote Code",
-          "type": "boolean",
-          "description": "Allow custom models from Hub",
-          "default": false,
-          "required": false,
-          "advanced": true
-        }
-      },
-      {
         "key": "LOG_REQUESTS",
         "input": {
           "name": "Log Requests",
@@ -408,7 +462,7 @@
         "input": {
           "name": "Disable Radix Cache",
           "type": "boolean",
-          "description": "Disable RadixAttention for prefix caching",
+          "description": "Disable RadixAttention for prefix caching.",
           "default": false,
           "required": false,
           "advanced": true
@@ -419,7 +473,7 @@
         "input": {
           "name": "Disable CUDA Graph",
           "type": "boolean",
-          "description": "Disable cuda graph",
+          "description": "Disable cuda graph. Enable if you encounter CUDA OOM on startup.",
           "default": false,
           "required": false,
           "advanced": true
@@ -437,11 +491,44 @@
         }
       },
       {
+        "key": "ENABLE_MULTIMODAL",
+        "input": {
+          "name": "Enable Multimodal",
+          "type": "boolean",
+          "description": "Explicitly enable multimodal (VLM) support. Usually auto-detected, but set to true for Qwen3-VL if images fail.",
+          "default": false,
+          "required": false,
+          "advanced": true
+        }
+      },
+      {
+        "key": "KEEP_MM_FEATURE_ON_DEVICE",
+        "input": {
+          "name": "Keep MM Feature On Device",
+          "type": "boolean",
+          "description": "Keep multimodal (image) features on GPU after processing. Improves speed but uses more VRAM.",
+          "default": false,
+          "required": false,
+          "advanced": true
+        }
+      },
+      {
+        "key": "DISABLE_FAST_IMAGE_PROCESSOR",
+        "input": {
+          "name": "Disable Fast Image Processor",
+          "type": "boolean",
+          "description": "Use base image processor instead of fast one. Enable if image processing errors occur.",
+          "default": false,
+          "required": false,
+          "advanced": true
+        }
+      },
+      {
         "key": "ENABLE_TORCH_COMPILE",
         "input": {
           "name": "Enable Torch Compile",
           "type": "boolean",
-          "description": "Optimize model with torch.compile",
+          "description": "Optimize model with torch.compile. Increases startup time but may improve throughput.",
           "default": false,
           "required": false,
           "advanced": true
@@ -478,6 +565,16 @@
           "default": false,
           "required": false,
           "advanced": true
+        }
+      },
+      {
+        "key": "MAX_CONCURRENCY",
+        "input": {
+          "name": "Max Concurrency (RunPod Workers)",
+          "type": "number",
+          "description": "Maximum number of concurrent RunPod serverless workers. Set to 10 for 10 concurrent users.",
+          "default": 10,
+          "required": false
         }
       }
     ]

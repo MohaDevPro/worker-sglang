@@ -3,3 +3,4 @@ pandas
 pyarrow
 runpod>=1.8,<2.0
 pydantic-settings
+aiohttp>=3.9

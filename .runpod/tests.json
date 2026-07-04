@@ -1,14 +1,18 @@
 {
   "tests": [
     {
-      "name": "basic_test",
+      "name": "basic_vlm_test",
       "input": {
-        "model": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+        "model": "Qwen/Qwen3-VL-8B-Instruct-FP8",
         "messages": [
-          { "role": "user", "content": "What is the capital of France?" }
-        ]
+          {
+            "role": "user",
+            "content": "What is the capital of France? Answer in one word."
+          }
+        ],
+        "max_tokens": 50
       },
-      "timeout": 500000
+      "timeout": 600000
     }
   ],
   "config": {
@@ -16,12 +20,64 @@
     "gpuCount": 1,
     "env": [
       {
+        "key": "MODEL_NAME",
+        "value": "Qwen/Qwen3-VL-8B-Instruct-FP8"
+      },
+      {
         "key": "TRUST_REMOTE_CODE",
         "value": "true"
       },
       {
-        "key": "MODEL_NAME",
-        "value": "HuggingFaceTB/SmolLM2-1.7B-Instruct"
+        "key": "DTYPE",
+        "value": "auto"
+      },
+      {
+        "key": "ATTENTION_BACKEND",
+        "value": "flashinfer"
+      },
+      {
+        "key": "SAMPLING_BACKEND",
+        "value": "flashinfer"
+      },
+      {
+        "key": "FILE_STORAGE_PATH",
+        "value": "/runpod-volume/file-storage"
+      },
+      {
+        "key": "MEM_FRACTION_STATIC",
+        "value": "0.85"
+      },
+      {
+        "key": "MAX_RUNNING_REQUESTS",
+        "value": "10"
+      },
+      {
+        "key": "MAX_TOTAL_TOKENS",
+        "value": "8192"
+      },
+      {
+        "key": "CONTEXT_LENGTH",
+        "value": "8192"
+      },
+      {
+        "key": "CHUNKED_PREFILL_SIZE",
+        "value": "512"
+      },
+      {
+        "key": "MAX_PREFILL_TOKENS",
+        "value": "4096"
+      },
+      {
+        "key": "SCHEDULE_POLICY",
+        "value": "lpm"
+      },
+      {
+        "key": "LOG_LEVEL",
+        "value": "info"
+      },
+      {
+        "key": "MAX_CONCURRENCY",
+        "value": "10"
       }
     ],
     "allowedCudaVersions": ["12.9", "12.8", "12.7", "12.6"]
