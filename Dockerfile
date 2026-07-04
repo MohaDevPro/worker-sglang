@@ -9,14 +9,14 @@ ENV PATH="/root/.local/bin:${PATH}"
 WORKDIR /sgl-workspace
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system --upgrade \
+    uv pip install --system --break-system-packages --upgrade \
     "transformers>=5.13.0" \
     "tokenizers>=0.15.0"
 
 # install dependencies
 COPY requirements.txt ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system -r requirements.txt
+    uv pip install --system --break-system-packages -r requirements.txt
 
 # copy source files
 COPY handler.py engine.py utils.py download_model.py test_input.json ./
