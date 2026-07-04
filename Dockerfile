@@ -3,9 +3,8 @@ FROM lmsysorg/sglang:v0.5.14-cu129
 # Set working directory to the one already used by the base image
 WORKDIR /sgl-workspace
 
-# Install runpod SDK only (--no-deps avoids conflicts with sglang's existing packages)
-# All runpod dependencies (aiohttp, requests, websocket-client, etc.) are already in the base image
-RUN pip install --no-cache-dir --no-deps runpod
+# Install runpod SDK with its dependencies
+RUN pip install --no-cache-dir runpod
 
 # copy source files
 COPY handler.py engine.py utils.py download_model.py test_input.json ./
