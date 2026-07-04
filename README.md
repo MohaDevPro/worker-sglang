@@ -4,8 +4,7 @@ Run LLMs and VLMs using [SGLang](https://docs.sglang.ai)
 
 ---
 
-[![RunPod](https://api.runpod.io/badge/runpod-workers/worker-sglang)](https://www.runpod.io/console/hub/runpod-workers/worker-sglang)
-
+[![Runpod](https://api.runpod.io/badge/MohaDevPro/worker-sglang)](https://console.runpod.io/hub/MohaDevPro/worker-sglang)
 ---
 
 ## Endpoint Configuration
