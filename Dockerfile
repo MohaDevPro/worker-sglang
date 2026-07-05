@@ -3,8 +3,11 @@ FROM lmsysorg/sglang:v0.5.14-cu129
 # Set working directory to the one already used by the base image
 WORKDIR /sgl-workspace
 
-# Install runpod SDK with its dependencies
-RUN pip install --no-cache-dir runpod
+# Install runpod SDK: --no-deps to avoid conflicts, then missing deps
+RUN pip install --no-cache-dir --no-deps runpod 2>&1 && \
+    pip install --no-cache-dir paramiko 2>&1 || \
+    (echo "=== pip install failed, trying with verbose output ===" && \
+     pip install --no-cache-dir --verbose paramiko 2>&1)
 
 # copy source files
 COPY handler.py engine.py utils.py download_model.py test_input.json ./
